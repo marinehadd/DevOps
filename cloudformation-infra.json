@@ -18,7 +18,7 @@
     "S3Bucket": {
       "Type": "AWS::S3::Bucket",
       "Properties": {
-	"BucketName" : "marniebucketv2",
+	"BucketName" : "marniebucketv3",
         "AccessControl": "PublicRead",
         "WebsiteConfiguration": {
         	"IndexDocument": "index.html",
@@ -26,7 +26,7 @@
                 }
             }
         },
-    "MVPC" : {
+    "newVPC" : {
       "Type" : "AWS::EC2::VPC",
       "Properties" : {
        	"CidrBlock": "10.0.0.0/16",
@@ -35,11 +35,11 @@
     	"InstanceTenancy": "default"
       }
     },
-    "MSG" : {
+    "newSG" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
 	"GroupDescription": "SecurityGroud CF",
-       	"VpcId" : {"Ref" : "MVPC"},
+       	"VpcId" : {"Ref" : "newVPC"},
 	"SecurityGroupIngress" : [{
          "IpProtocol" : "-1",
          "CidrIp" : "0.0.0.0/0"
@@ -50,51 +50,51 @@
 	}]
       }
     },
-    "MIG" : {
+    "newIG" : {
       "Type" : "AWS::EC2::InternetGateway",
       "Properties" : {
 	"Tags" : [ {"Key" : "name", "Value" : "cloudfig"}]
 	}
     },
-    "MIGAttach" : {
+    "newIGAttach" : {
       "Type" : "AWS::EC2::VPCGatewayAttachment",
       "Properties" : {
-	"VpcId" : { "Ref" : "MVPC" },
-	"InternetGatewayId" : { "Ref" : "MIG" }
+	"VpcId" : { "Ref" : "newVPC" },
+	"InternetGatewayId" : { "Ref" : "newIG" }
 	}
     },
-    "MSub" : {
+    "newSub" : {
       "Type" : "AWS::EC2::Subnet",
       "Properties" : {
-	"VpcId" : {"Ref": "MVPC"},
+	"VpcId" : {"Ref": "newVPC"},
 	"AvailabilityZone" : "eu-central-1a",
        	"CidrBlock": "10.0.1.0/24", 
     	"MapPublicIpOnLaunch" : true
 	}
     },
-    "MRT" : {
+    "newRT" : {
       "Type" : "AWS::EC2::RouteTable",
       "Properties" : {
-	"VpcId" : {"Ref": "MVPC"}
+	"VpcId" : {"Ref": "newVPC"}
 	}
     },
-    "MIGroute" : {
+    "newIGroute" : {
       "Type" : "AWS::EC2::Route",
-      "DependsOn" : "MIGAttach",
+      "DependsOn" : "newIGAttach",
       "Properties" : {
-	"RouteTableId" : { "Ref" : "MRT" },
+	"RouteTableId" : { "Ref" : "newRT" },
 	"DestinationCidrBlock" : "0.0.0.0/0",
-	"GatewayId" : { "Ref" : "MIG" }
+	"GatewayId" : { "Ref" : "newIG" }
 	}
     },
-    "MsubAttach" : {
+    "newsubAttach" : {
       "Type" : "AWS::EC2::SubnetRouteTableAssociation",
       "Properties" : {
-	"RouteTableId" : { "Ref" : "MRT" },
-	"SubnetId" : { "Ref" : "MSub" }
+	"RouteTableId" : { "Ref" : "newRT" },
+	"SubnetId" : { "Ref" : "newSub" }
 	}
     },
-    "MEC2" : {
+    "newEC2" : {
       "Type" : "AWS::EC2::Instance",
       "Properties" : {
         "InstanceType" : { "Ref" : "InstanceType" },
@@ -102,8 +102,8 @@
         "KeyName" : { "Ref" : "KeyName" },
 	"IamInstanceProfile" : "S3Admin",
         "ImageId" : "ami-0cc293023f983ed53",
-	"SecurityGroupIds" : [{"Ref": "MSG"}],
-    	"SubnetId" : {"Ref" : "MSub"}
+	"SecurityGroupIds" : [{"Ref": "newSG"}],
+    	"SubnetId" : {"Ref" : "newSub"}
       }
     }
   },
@@ -111,19 +111,19 @@
   "Outputs" : {
     "InstanceId" : {
       "Description" : "InstanceId of the newly created EC2 instance",
-      "Value" : { "Ref" : "MEC2" }
+      "Value" : { "Ref" : "newEC2" }
     },
     "AZ" : {
       "Description" : "Availability Zone of the newly created EC2 instance",
-      "Value" : { "Fn::GetAtt" : [ "MEC2", "AvailabilityZone" ] }
+      "Value" : { "Fn::GetAtt" : [ "newEC2", "AvailabilityZone" ] }
     },
     "PublicDNS" : {
       "Description" : "Public DNSName of the newly created EC2 instance",
-      "Value" : { "Fn::GetAtt" : [ "MEC2", "PublicDnsName" ] }
+      "Value" : { "Fn::GetAtt" : [ "newEC2", "PublicDnsName" ] }
     },
     "PublicIP" : {
       "Description" : "Public IP address of the newly created EC2 instance",
-      "Value" : { "Fn::GetAtt" : [ "MEC2", "PublicIp" ] }
+      "Value" : { "Fn::GetAtt" : [ "newEC2", "PublicIp" ] }
     }
   }
 }
