@@ -1,0 +1,136 @@
+{
+
+  "Parameters" : {
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+
+    "InstanceType" : {
+      "Description" : "Marine EC2 instance",
+      "Type" : "String",
+      "Default" : "t2.small",
+      "AllowedValues" : [ "t1.micro", "t2.nano", "t2.micro", "t2.small", "t2.medium", "t2.large", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "m4.large", "m4.xlarge", "m4.2xlarge", "m4.4xlarge", "m4.10xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "g2.2xlarge", "g2.8xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge"]
+    }
+  },
+
+  "Resources" : {
+    "S3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+	"BucketName" : "marniebucketv3",
+        "AccessControl": "PublicRead",
+        "WebsiteConfiguration": {
+        	"IndexDocument": "index.html",
+        	"ErrorDocument": "error.html"
+                }
+            }
+        },
+    "newVPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+       	"CidrBlock": "10.0.0.0/16",
+    	"EnableDnsSupport": true,
+    	"EnableDnsHostnames": true,
+    	"InstanceTenancy": "default"
+      }
+    },
+    "newSG" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+	"GroupDescription": "SecurityGroud CF",
+       	"VpcId" : {"Ref" : "newVPC"},
+	"SecurityGroupIngress" : [{
+         "IpProtocol" : "-1",
+         "CidrIp" : "0.0.0.0/0"
+      	}],
+      "SecurityGroupEgress" : [{
+         "IpProtocol" : "-1",
+         "CidrIp" : "0.0.0.0/0"
+	}]
+      }
+    },
+    "newIG" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+	"Tags" : [ {"Key" : "name", "Value" : "cloudfig"}]
+	}
+    },
+    "newIGAttach" : {
+      "Type" : "AWS::EC2::VPCGatewayAttachment",
+      "Properties" : {
+	"VpcId" : { "Ref" : "newVPC" },
+	"InternetGatewayId" : { "Ref" : "newIG" }
+	}
+    },
+    "newSub" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+	"VpcId" : {"Ref": "newVPC"},
+	"AvailabilityZone" : "eu-central-1a",
+       	"CidrBlock": "10.0.1.0/24", 
+    	"MapPublicIpOnLaunch" : true
+	}
+    },
+    "newRT" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+	"VpcId" : {"Ref": "newVPC"}
+	}
+    },
+    "newIGroute" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "newIGAttach",
+      "Properties" : {
+	"RouteTableId" : { "Ref" : "newRT" },
+	"DestinationCidrBlock" : "0.0.0.0/0",
+	"GatewayId" : { "Ref" : "newIG" }
+	}
+    },
+    "newsubAttach" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+	"RouteTableId" : { "Ref" : "newRT" },
+	"SubnetId" : { "Ref" : "newSub" }
+	}
+    },
+    "newEC2" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "InstanceType" : { "Ref" : "InstanceType" },
+	"AvailabilityZone" : "eu-central-1a",
+        "KeyName" : { "Ref" : "KeyName" },
+	"IamInstanceProfile" : "S3Admin",
+        "ImageId" : "ami-0cc293023f983ed53",
+	"SecurityGroupIds" : [{"Ref": "newSG"}],
+    	"SubnetId" : {"Ref" : "newSub"}
+      }
+    },
+    "newEIP" : {
+      "Type" : "AWS::EC2::EIPAssociation",
+      "Properties" : {
+        "AllocationId" : "eipalloc-079b1bd6dc9eccf06",
+        "InstanceId" : { "Ref" : "newEC2" }
+      }
+    }
+  },
+
+  "Outputs" : {
+    "InstanceId" : {
+      "Description" : "InstanceId of the newly created EC2 instance",
+      "Value" : { "Ref" : "newEC2" }
+    },
+    "AZ" : {
+      "Description" : "Availability Zone of the newly created EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "newEC2", "AvailabilityZone" ] }
+    },
+    "PublicDNS" : {
+      "Description" : "Public DNSName of the newly created EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "newEC2", "PublicDnsName" ] }
+    },
+    "PublicIP" : {
+      "Description" : "Public IP address of the newly created EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "newEC2", "PublicIp" ] }
+    }
+  }
+}
