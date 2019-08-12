@@ -1,0 +1,236 @@
+---
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+  InstanceType:
+    Description: Marine EC2 instance
+    Type: String
+    Default: t2.small
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+  MySG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG CF
+      VpcId:
+        Ref: MyVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+        FromPort: '22'
+        ToPort: '22'
+      - IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+        FromPort: '80'
+        ToPort: '80'
+      SecurityGroupEgress:
+      - IpProtocol: "-1"
+        CidrIp: 0.0.0.0/0
+  MySGALB:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG ALB CF
+      VpcId:
+        Ref: MyVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+        FromPort: '22'
+        ToPort: '22'
+      - IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+        FromPort: '80'
+        ToPort: '80'
+      SecurityGroupEgress:
+      - IpProtocol: "-1"
+        CidrIp: 0.0.0.0/0
+  MyIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: name
+        Value: igw marnie
+  MyIGWtoMyVPC:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      InternetGatewayId:
+        Ref: MyIGW
+  MySub1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      AvailabilityZone: eu-central-1a
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+  MySub2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: MyVPC
+      AvailabilityZone: eu-central-1b
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+  MyRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: MyVPC
+  MyIGWtoRT:
+    Type: AWS::EC2::Route
+    DependsOn: MyIGWtoMyVPC
+    Properties:
+      RouteTableId:
+        Ref: MyRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: MyIGW
+  MySub1toRT:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: MyRT
+      SubnetId:
+        Ref: MySub1
+  MySub2toRT:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: MyRT
+      SubnetId:
+        Ref: MySub2
+  MyEC2n1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType:
+        Ref: InstanceType
+      AvailabilityZone: eu-central-1a
+      KeyName:
+        Ref: KeyName
+      IamInstanceProfile: S3Admin
+      ImageId: ami-0cc293023f983ed53
+      SecurityGroupIds:
+      - Ref: MySG
+      SubnetId:
+        Ref: MySub1
+  MyEC2n2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType:
+        Ref: InstanceType
+      AvailabilityZone: eu-central-1b
+      KeyName:
+        Ref: KeyName
+      IamInstanceProfile: S3Admin
+      ImageId: ami-0cc293023f983ed53
+      SecurityGroupIds:
+      - Ref: MySG
+      SubnetId:
+        Ref: MySub2
+  MyEIP1:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: eipalloc-0acb806cf8ef5d268
+      InstanceId:
+        Ref: MyEC2n1
+  MyEIP2:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: eipalloc-079b1bd6dc9eccf06
+      InstanceId:
+        Ref: MyEC2n2
+  MyTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: MyTG
+      Port: 80
+      Protocol: HTTP
+      Targets:
+      - Id: !Ref MyEC2n1
+      - Id: !Ref MyEC2n2
+      TargetType: instance
+      VpcId: !Ref MyVPC
+  MyALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: ALB-Marnie
+      Scheme: internet-facing
+      SecurityGroups:
+      - Ref: MySGALB
+      Subnets:
+      - Ref: MySub1
+      - Ref: MySub2
+  MyListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref MyALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref MyTG
+
+Outputs:
+  InstanceId1:
+    Description: InstanceId of the newly created EC2 instance
+    Value:
+      Ref: MyEC2n1
+  InstanceId2:
+    Description: InstanceId of the newly created EC2 instance
+    Value:
+      Ref: MyEC2n2
+  AZ1:
+    Description: Availability Zone of the newly created EC2 instance
+    Value:
+      Fn::GetAtt:
+      - MyEC2n1
+      - AvailabilityZone
+  AZ2:
+    Description: Availability Zone of the newly created EC2 instance
+    Value:
+      Fn::GetAtt:
+      - MyEC2n2
+      - AvailabilityZone
+  PublicDNS1:
+    Description: Public DNSName of the newly created EC2 instance
+    Value:
+      Fn::GetAtt:
+      - MyEC2n1
+      - PublicDnsName
+  PublicDNS2:
+    Description: Public DNSName of the newly created EC2 instance
+    Value:
+      Fn::GetAtt:
+      - MyEC2n2
+      - PublicDnsName
+  PublicIP1:
+    Description: Public IP address of the newly created EC2 instance
+    Value:
+      Fn::GetAtt:
+      - MyEC2n1
+      - PublicIp
+  PublicIP2:
+    Description: Public IP address of the newly created EC2 instance
+    Value:
+      Fn::GetAtt:
+      - MyEC2n2
+      - PublicIp
+  LoadBalancer:
+    Description: Ref to application load balancer
+    Value: !Ref MyALB
+  LoadBalancerUrl:
+    Description: The URL of the ALB
+    Value: !GetAtt MyALB.DNSName
+  Listener:
+    Description: A reference to a port 80 listener
+    Value: !Ref MyListener
