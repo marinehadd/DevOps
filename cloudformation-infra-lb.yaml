@@ -154,6 +154,7 @@ Resources:
       Name: MyTG
       Port: 80
       Protocol: HTTP
+      HealthCheckPath: /index.html
       Targets:
       - Id: !Ref MyEC2n1
       - Id: !Ref MyEC2n2
