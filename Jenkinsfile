@@ -12,11 +12,7 @@ pipeline{
 			CFN_TEMPLATES_REPO = 'marinehadd/DevOps'
 			CFN_TEMPLATES_PATH = 'DevOps'
 			CFN_TEMPLATES_REPO_BRANCH = 'master'
-			CFN_TEMPLATES_LOCATION = 'DevOps/cloudformation-infra-lb.yaml'
-#			TEMPLATES_PARAMETERS_REPO = 
-#			TEMPLATES_PARAMETERS_PATH =
-#			TEMPLATES_PARAMETERS_REPO_BRANCH =				
-
+			CFN_TEMPLATES_LOCATION = 'DevOps/cloudformation-infra-lb.yaml'				
 			STACK_NAME = "Infra Setup"	
 		}
 		
