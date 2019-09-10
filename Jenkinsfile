@@ -11,8 +11,6 @@ pipeline{
 			CFN_TEMPLATES_REPO_BRANCH = 'master'
 			CFN_TEMPLATES_LOCATION = 'DevOps/cloudformation-infra-lb.yaml'				
 			STACK_NAME = "Infra Setup"
-			AWS_ACCESS_KEY_ID = credentials('AKIASMFWHP25CW5A3E67')
-        		AWS_SECRET_ACCESS_KEY = credentials('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')
 		}
 		
 		stages{
